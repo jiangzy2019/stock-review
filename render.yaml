@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: stock-review
+    runtime: python
+    repo: https://github.com/jiangzy2019/stock-review
+    branch: main
+    buildCommand: ./build.sh
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 2
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+    plan: free
