@@ -9,6 +9,7 @@ from pathlib import Path
 from collections import OrderedDict
 
 import requests
+import yfinance as yf
 from flask import Flask, render_template, jsonify, request
 
 BASE = Path(__file__).resolve().parent
@@ -33,6 +34,31 @@ PORTFOLIO_CFG = OrderedDict([
 
 def market_prefix(code):
     return f"sh{code.strip()}" if code.strip().startswith(("6", "9")) else f"sz{code.strip()}"
+
+
+def fetch_kline_global(code, days=120):
+    """使用 Yahoo Finance 获取全球可访问的行情数据（备用）"""
+    try:
+        ticker = yf.Ticker("000725.SZ" if code == "000725" else
+                          "000938.SZ" if code == "000938" else
+                          "000002.SZ" if code == "000002" else
+                          "300458.SZ")
+        hist = ticker.history(period="6mo")
+        if hist is None or hist.empty or len(hist) < 20:
+            return None
+        data = []
+        for idx, row in hist.iterrows():
+            data.append({
+                "day": idx.strftime("%Y-%m-%d"),
+                "open": str(round(row["Open"], 2)),
+                "high": str(round(row["High"], 2)),
+                "low": str(round(row["Low"], 2)),
+                "close": str(round(row["Close"], 2)),
+                "volume": str(int(row["Volume"]))
+            })
+        return data
+    except Exception:
+        return None
 
 def fetch_kline(code, days=120):
     url = "http://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData"
@@ -311,6 +337,8 @@ def api_review_run():
     results = []
     for code, info in PORTFOLIO_CFG.items():
         kline = fetch_kline(code, 120)
+        if not kline:
+            kline = fetch_kline_global(code, 120)
         indicators = calc_indicators(kline) if kline else None
         user_price = user_prices.get(code)
         price_source = "manual" if user_price else "auto"
