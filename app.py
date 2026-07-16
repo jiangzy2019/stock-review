@@ -515,6 +515,64 @@ def api_review_run():
     })
 
 
+
+# ── Company analysis API ──
+
+def md_to_html(md_text):
+    """简化 Markdown 转 HTML"""
+    import html as html_module
+    lines = md_text.splitlines()
+    html_parts = []
+    in_table = False
+    for line in lines:
+        if line.startswith("|") and line.endswith("|"):
+            cells = [c.strip() for c in line.split("|")[1:-1]]
+            if not in_table:
+                html_parts.append("<table>")
+                in_table = True
+            if set(line.replace("|", "").replace("-", "").replace(":", "").strip()) == set():
+                continue
+            tag = "th" if any("---" in line for _ in [1]) else "td"
+            row = "<tr>" + "".join(f"<{tag}>{html_module.escape(c)}</{tag}>" for c in cells) + "</tr>"
+            html_parts.append(row)
+        else:
+            if in_table:
+                html_parts.append("</table>")
+                in_table = False
+            if line.startswith("### "): html_parts.append(f"<h3>{html_module.escape(line[4:])}</h3>")
+            elif line.startswith("## "): html_parts.append(f"<h2>{html_module.escape(line[3:])}</h2>")
+            elif line.startswith("# "): html_parts.append(f"<h1>{html_module.escape(line[2:])}</h1>")
+            elif line.startswith("---"): html_parts.append("<hr>")
+            elif line.startswith(">"): html_parts.append(f"<blockquote>{html_module.escape(line[1:].strip())}</blockquote>")
+            elif line.startswith("- ") or line.startswith("* "): html_parts.append(f"<li>{html_module.escape(line[2:])}</li>")
+            elif line.strip() == "": html_parts.append("<br>")
+            else: html_parts.append(f"<p>{html_module.escape(line)}</p>")
+    if in_table: html_parts.append("</table>")
+    sep = chr(10)  # newline
+    return sep.join(html_parts)
+
+
+@app.route("/api/company/<code>")
+def api_company(code):
+    """读取公司分析笔记（01-Companies/ 下的 Markdown）"""
+    name_map = {"000725": "京东方A", "000938": "紫光股份", "300458": "全志科技"}
+    filename = name_map.get(code, "")
+    if not filename:
+        return jsonify({"error": "未找到该公司分析"}), 404
+    f = VAULT / "01-Companies" / (filename + ".md")
+    if not f.exists():
+        return jsonify({"error": "分析文件不存在"}), 404
+    md_content = f.read_text(encoding="utf-8", errors="replace")
+    body = md_content.split("---", 2)[-1] if md_content.count("---") >= 2 else md_content
+    html_content = md_to_html(body)
+    title = filename
+    for line in md_content.splitlines():
+        if line.startswith("# "):
+            title = line.replace("# ", "").strip()
+            break
+    obsidian_uri = "obsidian://open?vault=industry-research&file=01-Companies/" + filename
+    return jsonify({"title": title, "content": md_content, "html": html_content, "obsidian_uri": obsidian_uri})
+
 if __name__ == "__main__":
     os.makedirs(str(TEMPLATES), exist_ok=True)
     print("⚡ 股票复盘 Web App 启动中...")
