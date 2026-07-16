@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>股票复盘</title>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  :root {
+    --bg: #f0f2f5; --card: #fff; --text: #1a1d23; --text2: #6b7280;
+    --text3: #9ca3af; --border: #e5e7eb; --accent: #2563eb;
+    --green: #059669; --green-bg: #d1fae5; --red: #dc2626; --red-bg: #fee2e2;
+    --amber: #d97706; --amber-bg: #fef3c7; --teal: #0d9488; --teal-bg: #ccfbf1;
+    --gray: #6b7280; --gray-bg: #f3f4f6; --purple: #7c3aed; --purple-bg: #ede9fe;
+    --shadow: 0 1px 3px rgba(0,0,0,.06); --radius: 10px;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh; }
+
+  /* ── Layout ── */
+  .app { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+
+  /* ── Top Bar ── */
+  .topbar { background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+  .topbar-inner { max-width: 1100px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; height: 56px; padding: 0 16px; }
+  .logo { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .logo svg { color: var(--accent); }
+  .logo span { font-weight: 400; font-size: 13px; color: var(--text2); }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; gap: 4px; background: var(--card); border-bottom: 1px solid var(--border); padding: 0 16px; overflow-x: auto; }
+  .tab { display: flex; align-items: center; gap: 6px; padding: 12px 16px; font-size: 14px; font-weight: 500; color: var(--text2); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: .15s; }
+  .tab:hover { color: var(--accent); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab svg { width: 16px; height: 16px; }
+
+  /* ── Content ── */
+  .content { padding: 20px 0; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+  .page-header h2 { font-size: 20px; font-weight: 700; }
+  .page-header .meta { font-size: 13px; color: var(--text2); }
+
+  /* ── Buttons ── */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: .15s; }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-primary:disabled { opacity: .5; cursor: wait; }
+  .btn-outline { background: var(--card); color: var(--text2); border: 1px solid var(--border); }
+  .btn-outline:hover { background: var(--bg); }
+  .btn-sm { padding: 5px 12px; font-size: 13px; }
+  .btn-success { background: var(--green); color: #fff; }
+  .btn-success:hover { background: #047857; }
+
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Stock Cards ── */
+  .stock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+  .stock-card { background: var(--card); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); transition: box-shadow .2s; }
+  .stock-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+  .stock-card .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .stock-card .header .left { display: flex; align-items: center; gap: 8px; }
+  .stock-card .header .code { font-size: 12px; color: var(--text3); background: var(--bg); padding: 2px 8px; border-radius: 4px; }
+  .stock-card .header .name { font-size: 15px; font-weight: 600; }
+
+  .verdict-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .verdict-badge.green { background: var(--green-bg); color: var(--green); }
+  .verdict-badge.teal { background: var(--teal-bg); color: var(--teal); }
+  .verdict-badge.red { background: var(--red-bg); color: var(--red); }
+  .verdict-badge.orange { background: var(--amber-bg); color: var(--amber); }
+  .verdict-badge.gray { background: var(--gray-bg); color: var(--gray); }
+
+  .stock-card .price-row { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+  .stock-card .price-row .price { font-size: 26px; font-weight: 700; letter-spacing: -0.3px; }
+  .stock-card .price-row .change { font-size: 15px; font-weight: 500; }
+  .stock-card .price-row .change.up { color: var(--red); }
+  .stock-card .price-row .change.down { color: var(--green); }
+  .stock-card .price-row .change.zero { color: var(--text3); }
+
+  .indicator-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .indicator-item { font-size: 12px; background: var(--bg); padding: 3px 10px; border-radius: 6px; border: 1px solid var(--border); }
+  .indicator-item .label { color: var(--text2); }
+  .indicator-item .val { font-weight: 600; margin-left: 2px; }
+
+  .signal-tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 6px; }
+  .signal-tag { font-size: 11px; padding: 2px 10px; border-radius: 20px; font-weight: 500; white-space: nowrap; }
+  .signal-tag.buy { background: var(--green-bg); color: var(--green); }
+  .signal-tag.sell { background: var(--red-bg); color: var(--red); }
+  .signal-tag.bull { background: #dbeafe; color: #1e40af; }
+  .signal-tag.bear { background: var(--purple-bg); color: var(--purple); }
+  .signal-tag.caution { background: var(--amber-bg); color: var(--amber); }
+  .signal-tag.watch { background: #f0f9ff; color: #0369a1; }
+  .signal-tag.info { background: var(--gray-bg); color: var(--gray); }
+
+  .stock-card .reason { font-size: 13px; color: var(--text2); margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
+
+  /* ── Price Input Form ── */
+  .review-form { background: var(--card); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); margin-bottom: 20px; }
+  .review-form h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .price-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .price-item { display: flex; flex-direction: column; gap: 4px; }
+  .price-item label { font-size: 13px; font-weight: 500; color: var(--text2); display: flex; align-items: center; gap: 6px; }
+  .price-item label .code-sm { font-size: 11px; color: var(--text3); font-weight: 400; }
+  .price-item input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 16px; font-weight: 600; outline: none; transition: .15s; width: 100%; }
+  .price-item input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+  .price-item .hint { font-size: 11px; color: var(--text3); }
+  .form-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .form-actions .status { font-size: 13px; color: var(--text2); }
+
+  /* ── History ── */
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
+  .history-item { display: flex; align-items: center; justify-content: space-between; background: var(--card); border-radius: var(--radius); padding: 14px 18px; box-shadow: var(--shadow); cursor: pointer; transition: .15s; gap: 12px; flex-wrap: wrap; }
+  .history-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+  .history-item .left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+  .history-item .date-badge { font-size: 13px; font-weight: 600; color: var(--accent); min-width: 80px; }
+  .history-item .date-badge .weekday { font-weight: 400; font-size: 11px; color: var(--text3); margin-left: 4px; }
+  .history-item .preview { font-size: 13px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px; }
+  .history-item .signals { display: flex; gap: 4px; flex-wrap: wrap; }
+  .history-item .arrow { color: var(--text3); font-size: 16px; }
+
+  /* ── Review Detail ── */
+  .review-detail { background: var(--card); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); }
+  .review-detail .detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+  .review-detail .detail-header h2 { font-size: 20px; font-weight: 700; }
+  .review-detail .detail-body { line-height: 1.8; font-size: 14px; }
+  .review-detail .detail-body table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  .review-detail .detail-body th, .review-detail .detail-body td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+  .review-detail .detail-body th { background: var(--bg); font-weight: 600; }
+  .review-detail .detail-body code { background: var(--bg); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+  .review-detail .detail-body h1, .review-detail .detail-body h2, .review-detail .detail-body h3 { margin-top: 20px; margin-bottom: 10px; }
+  .review-detail .detail-body hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  /* ── Empty State ── */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text3); }
+  .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: .5; }
+  .empty-state h3 { font-size: 16px; font-weight: 600; color: var(--text2); margin-bottom: 4px; }
+  .empty-state p { font-size: 13px; }
+
+  /* ── Loading & Error ── */
+  .loading-state { text-align: center; padding: 40px; color: var(--text3); }
+  .error-state { background: var(--red-bg); color: var(--red); padding: 10px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; display: none; }
+  .error-state.show { display: block; }
+
+  /* ── Summary bar ── */
+  .summary-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+  .summary-chip { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; white-space: nowrap; background: var(--card); border: 1px solid var(--border); }
+  .summary-chip .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .summary-chip .dot.green { background: var(--green); }
+  .summary-chip .dot.teal { background: var(--teal); }
+  .summary-chip .dot.red { background: var(--red); }
+  .summary-chip .dot.orange { background: var(--amber); }
+  .summary-chip .dot.gray { background: var(--gray); }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    .stock-grid { grid-template-columns: 1fr; }
+    .price-grid { grid-template-columns: 1fr 1fr; }
+    .history-item .preview { max-width: 120px; }
+    .tabs { gap: 0; }
+    .tab { padding: 10px 12px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="logo">
+      <i data-lucide="trending-up" size="20"></i>
+      股票复盘 <span>Stock Review</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2)">
+      <span id="liveTime"></span>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="dashboard">
+    <i data-lucide="layout-dashboard" size="16"></i> 仪表盘
+  </button>
+  <button class="tab" data-tab="review">
+    <i data-lucide="plus-circle" size="16"></i> 新复盘
+  </button>
+  <button class="tab" data-tab="history">
+    <i data-lucide="history" size="16"></i> 历史复盘
+  </button>
+  <button class="tab" data-tab="detail" id="detailTab" style="display:none;">
+    <i data-lucide="file-text" size="16"></i> 查看复盘
+  </button>
+</div>
+
+<div class="app">
+<div class="content">
+
+<!-- ═══ Dashboard ═══ -->
+<div class="page active" id="page-dashboard">
+  <div class="page-header">
+    <h2>持仓概览</h2>
+    <div class="meta">实时行情 · <span id="dashTime">加载中...</span></div>
+  </div>
+  <div id="dashError" class="error-state"></div>
+  <div id="dashSummary" class="summary-bar" style="margin-bottom:16px"></div>
+  <div id="dashGrid" class="stock-grid"></div>
+</div>
+
+<!-- ═══ New Review ═══ -->
+<div class="page" id="page-review">
+  <div class="page-header">
+    <h2>发起新复盘</h2>
+    <div class="meta">输入盘中价格，一键生成分析</div>
+  </div>
+  <div id="reviewError" class="error-state"></div>
+
+  <div class="review-form">
+    <h3><i data-lucide="edit-3" size="16"></i> 输入当前价格</h3>
+    <div class="price-grid" id="priceGrid">
+      <!-- filled by JS -->
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="runReviewBtn" onclick="runReview()">
+        <i data-lucide="sparkles" size="16"></i> 生成分析
+      </button>
+      <span class="status" id="reviewStatus"></span>
+    </div>
+  </div>
+
+  <div id="reviewResults" style="display:none">
+    <div class="page-header" style="margin-top:8px">
+      <h2>分析结果</h2>
+      <div class="meta" id="resultDate"></div>
+    </div>
+    <div id="resultGrid" class="stock-grid"></div>
+  </div>
+</div>
+
+<!-- ═══ History ═══ -->
+<div class="page" id="page-history">
+  <div class="page-header">
+    <h2>历史复盘</h2>
+    <div class="meta" id="historyCount">加载中...</div>
+  </div>
+  <div id="historyError" class="error-state"></div>
+  <div id="historyList" class="history-list"></div>
+</div>
+
+<!-- ═══ Detail ═══ -->
+<div class="page" id="page-detail">
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="btn btn-outline btn-sm" onclick="goBackToHistory()">
+        <i data-lucide="arrow-left" size="14"></i> 返回
+      </button>
+      <h2 id="detailTitle">复盘详情</h2>
+    </div>
+  </div>
+  <div id="detailError" class="error-state"></div>
+  <div id="detailBody" class="review-detail"></div>
+</div>
+
+</div><!-- .content -->
+</div><!-- .app -->
+
+<script>
+// ── State ──
+const PORTFOLIO = [
+  {code:"000725", name:"京东方A", market:"sz"},
+  {code:"000938", name:"紫光股份", market:"sz"},
+  {code:"000002", name:"万科A", market:"sz"},
+  {code:"300458", name:"全志科技", market:"sz"},
+];
+
+// ── Clock ──
+function updateClock() {
+  const now = new Date();
+  document.getElementById('liveTime').textContent =
+    now.toLocaleDateString('zh-CN', {month:'2-digit', day:'2-digit'}) + ' ' +
+    now.toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'});
+}
+setInterval(updateClock, 10000);
+updateClock();
+
+// ── Tab Navigation ──
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('page-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+function showDetailTab() {
+  document.getElementById('detailTab').style.display = '';
+  document.querySelector('.tab[data-tab="detail"]').click();
+}
+
+function goBackToHistory() {
+  document.querySelector('.tab[data-tab="history"]').click();
+}
+
+// ── Helpers ──
+function priceClass(change) {
+  if (change > 0) return 'up';
+  if (change < 0) return 'down';
+  return 'zero';
+}
+
+function formatPct(v) {
+  if (v == null) return '--';
+  return (v > 0 ? '+' : '') + v.toFixed(2) + '%';
+}
+
+function signalHtml(signals) {
+  return signals.map(s =>
+    `<span class="signal-tag ${s.type}">${s.text}</span>`
+  ).join('');
+}
+
+function stockCardHtml(s) {
+  const change = s.change_pct != null ? formatPct(s.change_pct) : '--';
+  return `
+    <div class="stock-card">
+      <div class="header">
+        <div class="left">
+          <span class="code">${s.code}</span>
+          <span class="name">${s.name}</span>
+        </div>
+        <span class="verdict-badge ${s.color}">${s.verdict}</span>
+      </div>
+      <div class="price-row">
+        <span class="price">${s.price != null ? s.price.toFixed(2) : '--'}</span>
+        <span class="change ${priceClass(s.change_pct)}">${change}</span>
+      </div>
+      <div class="indicator-row">
+        ${s.ma20 != null ? `<span class="indicator-item"><span class="label">MA20:</span> <span class="val">${s.ma20.toFixed(2)}</span></span>` : ''}
+        ${s.ma60 != null ? `<span class="indicator-item"><span class="label">MA60:</span> <span class="val">${s.ma60.toFixed(2)}</span></span>` : ''}
+        ${s.rsi != null ? `<span class="indicator-item"><span class="label">RSI:</span> <span class="val">${s.rsi}</span></span>` : ''}
+        ${s.macd_signal ? `<span class="indicator-item"><span class="label">MACD:</span> <span class="val">${s.macd_signal}</span></span>` : ''}
+        ${s.vol_ratio != null ? `<span class="indicator-item"><span class="label">量比:</span> <span class="val">${s.vol_ratio.toFixed(2)}</span></span>` : ''}
+      </div>
+      ${s.signals ? `<div class="signal-tags">${signalHtml(s.signals)}</div>` : ''}
+      ${s.reason ? `<div class="reason">${s.action} · ${s.reason}</div>` : ''}
+    </div>
+  `;
+}
+
+// ── Dashboard ──
+function loadDashboard() {
+  const grid = document.getElementById('dashGrid');
+  const summary = document.getElementById('dashSummary');
+  const err = document.getElementById('dashError');
+  grid.innerHTML = '<div class="loading-state">加载行情数据中...</div>';
+  err.classList.remove('show');
+  summary.innerHTML = '';
+
+  fetch('/api/portfolio')
+    .then(r => r.json())
+    .then(data => {
+      const stocks = data.stocks || [];
+      document.getElementById('dashTime').textContent = data.time || '--';
+      grid.innerHTML = stocks.map(s => stockCardHtml(s)).join('');
+
+      // Summary bar
+      const vc = {};
+      stocks.forEach(s => { vc[s.verdict] = (vc[s.verdict]||0) + 1; });
+      summary.innerHTML = Object.entries(vc).map(([v, c]) =>
+        `<span class="summary-chip"><span class="dot ${stocks.find(s=>s.verdict===v)?.color||'gray'}"></span> ${v} ${c}</span>`
+      ).join('');
+      summary.style.display = stocks.length ? '' : 'none';
+      lucide.createIcons();
+    })
+    .catch(e => {
+      grid.innerHTML = '';
+      err.textContent = '加载失败: ' + e.message;
+      err.classList.add('show');
+    });
+}
+
+// ── New Review Form ──
+function initReviewForm() {
+  const grid = document.getElementById('priceGrid');
+  grid.innerHTML = PORTFOLIO.map(s => `
+    <div class="price-item">
+      <label>
+        ${s.name}
+        <span class="code-sm">${s.code}</span>
+      </label>
+      <input type="number" step="0.01" id="price-${s.code}" placeholder="填入当前价">
+      <span class="hint">留空则自动获取实时行情</span>
+    </div>
+  `).join('');
+  lucide.createIcons();
+}
+
+function runReview() {
+  const btn = document.getElementById('runReviewBtn');
+  const status = document.getElementById('reviewStatus');
+  const err = document.getElementById('reviewError');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 分析中...';
+  status.textContent = '正在获取行情数据...';
+  err.classList.remove('show');
+
+  const prices = {};
+  PORTFOLIO.forEach(s => {
+    const input = document.getElementById('price-' + s.code);
+    if (input && input.value) prices[s.code] = input.value;
+  });
+
+  fetch('/api/review/run', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({prices})
+  })
+  .then(r => r.json())
+  .then(data => {
+    const results = document.getElementById('reviewResults');
+    const grid = document.getElementById('resultGrid');
+    results.style.display = 'block';
+    document.getElementById('resultDate').textContent = data.date + ' ' + data.time;
+    grid.innerHTML = (data.stocks || []).map(s => stockCardHtml(s)).join('');
+    status.textContent = '✅ 分析完成';
+    btn.innerHTML = '<i data-lucide="sparkles" size="16"></i> 重新分析';
+    btn.disabled = false;
+    lucide.createIcons();
+  })
+  .catch(e => {
+    btn.innerHTML = '<i data-lucide="sparkles" size="16"></i> 生成分析';
+    btn.disabled = false;
+    status.textContent = '❌ 失败';
+    err.textContent = '分析失败: ' + e.message;
+    err.classList.add('show');
+  });
+}
+
+// ── History ──
+function loadHistory() {
+  const list = document.getElementById('historyList');
+  const count = document.getElementById('historyCount');
+  const err = document.getElementById('historyError');
+  list.innerHTML = '<div class="loading-state">加载历史复盘...</div>';
+  err.classList.remove('show');
+
+  fetch('/api/reviews')
+    .then(r => r.json())
+    .then(data => {
+      const reviews = data.reviews || [];
+      count.textContent = `共 ${reviews.length} 篇复盘`;
+      if (reviews.length === 0) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <i data-lucide="file-minus" size="48" style="opacity:.4"></i>
+            <h3>暂无历史复盘</h3>
+            <p>切换到"新复盘"页面发起第一次分析</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+      list.innerHTML = reviews.map(r => {
+        const d = new Date(r.date);
+        const weekday = ['日','一','二','三','四','五','六'][d.getDay()];
+        return `
+          <div class="history-item" onclick="showReview('${r.date}')">
+            <div class="left">
+              <div class="date-badge">${r.date.replace(/-/g,'/')} <span class="weekday">周${weekday}</span></div>
+              <div class="preview">${r.signals || r.title || (r.summary ? r.summary.substring(0,60) : '')}</div>
+            </div>
+            <span class="arrow">→</span>
+          </div>
+        `;
+      }).join('');
+      lucide.createIcons();
+    })
+    .catch(e => {
+      list.innerHTML = '';
+      err.textContent = '加载失败: ' + e.message;
+      err.classList.add('show');
+    });
+}
+
+// ── Review Detail ──
+function showReview(date) {
+  const body = document.getElementById('detailBody');
+  const title = document.getElementById('detailTitle');
+  const err = document.getElementById('detailError');
+  body.innerHTML = '<div class="loading-state">加载中...</div>';
+  err.classList.remove('show');
+  showDetailTab();
+  title.textContent = date + ' 复盘';
+
+  fetch('/api/review/' + date)
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        body.innerHTML = `<div class="error-state show">${data.error}</div>`;
+        return;
+      }
+      body.innerHTML = `
+        <div class="detail-header">
+          <h2>${date} 复盘</h2>
+          <span style="font-size:13px;color:var(--text2)">${(data.content || '').split('\\n').length} 行 · 分析 ${data.stocks?.length||0} 只股票</span>
+        </div>
+        <div class="detail-body">${data.html}</div>
+      `;
+    })
+    .catch(e => {
+      body.innerHTML = '';
+      err.textContent = '加载失败: ' + e.message;
+      err.classList.add('show');
+    });
+}
+
+// ── Init ──
+initReviewForm();
+loadDashboard();
+loadHistory();
+
+// Auto refresh dashboard every 60s
+setInterval(loadDashboard, 60000);
+</script>
+</body>
+</html>
